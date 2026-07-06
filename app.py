@@ -7,13 +7,12 @@ st.set_page_config(layout="wide")
 st.title("🎰 Streamlit Multi-Game Casino Hub")
 
 # --- GLOBAL BANKROLL MANAGEMENT ---
-# This wallet stays alive no matter which game the user switches to!
 if 'chips' not in st.session_state:
     st.session_state.chips = 1000
 
 # --- SIDEBAR NAVIGATION ENGINE ---
 st.sidebar.title("🎮 Casino Navigation")
-chosen_game = st.sidebar.selectbox("Choose Your Table:", ["🃏 Blackjack", "🎡 Roulette Wheel", "🃏 Poker Room (Coming Soon)"])
+chosen_game = st.sidebar.selectbox("Choose Your Table:", ["🃏 Blackjack", "🎡 Roulette Wheel", "🃏 Video Poker Room"])
 
 st.sidebar.markdown("---")
 st.sidebar.header("💰 Your Global Bankroll")
@@ -30,7 +29,6 @@ if chosen_game == "🃏 Blackjack":
     st.header("Blackjack Table")
     st.write("Dealer must hit on soft 17. Natural Blackjack pays 3:2.")
 
-    # Localized state isolation
     if 'bj_stage' not in st.session_state: st.session_state.bj_stage = 'betting'
     if 'player_hand' not in st.session_state: st.session_state.player_hand = []
     if 'dealer_hand' not in st.session_state: st.session_state.dealer_hand = []
@@ -140,19 +138,18 @@ if chosen_game == "🃏 Blackjack":
                 st.rerun()
 
 # =====================================================================
-# GAME 2: ROULETTE ENGINE
+# GAME 2: ROULETTE ENGINE WITH LIVE-ANIMATED MECHANICAL SPIN
 # =====================================================================
 elif chosen_game == "🎡 Roulette Wheel":
     st.header("European Roulette Table")
     st.write("Bet on Red, Black, Even, Odd, or target a specific single Lucky Number for a massive 35:1 payout!")
 
-    # Set up color mappings for European roulette layout
     red_numbers = [1, 3, 5, 7, 9, 12, 14, 16, 18, 19, 21, 23, 25, 27, 30, 32, 34, 36]
     
     if 'r_bet_type' not in st.session_state: st.session_state.r_bet_type = "Red"
     if 'r_target_num' not in st.session_state: st.session_state.r_target_num = 7
     if 'r_bet_amount' not in st.session_state: st.session_state.r_bet_amount = 100
-    if 'r_status' not in st.session_state: st.session_state.r_status = "idle" # idle, spinning, done
+    if 'r_status' not in st.session_state: st.session_state.r_status = "idle" 
     if 'r_result' not in st.session_state: st.session_state.r_result = None
 
     col_input, col_wheel = st.columns([2, 3])
@@ -161,16 +158,16 @@ elif chosen_game == "🎡 Roulette Wheel":
         st.subheader("Place Your Outer/Inner Bets")
         bet_choice = st.selectbox("Select Bet Strategy Type:", ["Red (Pays 1:1)", "Black (Pays 1:1)", "Even (Pays 1:1)", "Odd (Pays 1:1)", "Single Number (Pays 35:1)"])
         
-        target_number = 0
+        target_number = 7
         if "Single Number" in bet_choice:
             target_number = st.number_input("Pick a Lucky Number (0-36):", min_value=0, max_value=36, value=7, step=1)
             
         max_r_bet = max(10, st.session_state.chips)
         bet_amt = st.slider("Select Roulette Bet Amount ($)", 10, int(max_r_bet), min(100, int(max_r_bet)), 10)
 
-        if st.button("🎰 Spin the Wheel!", type="primary", disabled=(st.session_state.r_status == "spinning")):
+        if st.button("🎡 Spin the Wheel!", type="primary", disabled=(st.session_state.r_status == "spinning")):
             if bet_amt > st.session_state.chips:
-                st.error("Insufficent chips!")
+                st.error("Insufficient chips!")
             else:
                 st.session_state.r_bet_amount = bet_amt
                 st.session_state.r_status = "spinning"
@@ -181,13 +178,31 @@ elif chosen_game == "🎡 Roulette Wheel":
         st.subheader("The Wheel Display")
         
         if st.session_state.r_status == "spinning":
-            # Pseudo-animation cycle
-            with st.spinner("🔮 The croupier releases the ball... Wheel spinning..."):
-                time.sleep(1.5) # Simulating spin momentum duration
+            wheel_placeholder = st.empty()
+            landed_number = random.randint(0, 36)
             
-            # Draw random outcome land vector
-            landed = random.randint(0, 36)
-            st.session_state.r_result = landed
+            total_frames = 28
+            for frame in range(total_frames):
+                if frame == total_frames - 1:
+                    current_num = landed_number
+                else:
+                    current_num = random.randint(0, 36)
+                
+                num_color = "🟢" if current_num == 0 else ("🔴" if current_num in red_numbers else "⚫")
+                hex_color = "#2e7d32" if current_num == 0 else ("#d32f2f" if current_num in red_numbers else "#212121")
+                label_text = "LANDED!" if frame == total_frames - 1 else "SPINNING..."
+                
+                wheel_placeholder.markdown(f"""
+                    <div style="background-color: {hex_color}; padding: 35px; border-radius: 20px; text-align: center; border: 5px solid #ffd700; box-shadow: 0px 6px 20px rgba(0,0,0,0.6); margin: 10px auto; max-width: 280px;">
+                        <h1 style="color: white; font-size: 85px; margin: 0; font-family: 'Courier New', monospace; font-weight: bold;">{current_num}</h1>
+                        <p style="color: #ffd700; font-size: 18px; margin: 10px 0 0 0; font-weight: bold; letter-spacing: 3px;">{num_color} {label_text}</p>
+                    </div>
+                """, unsafe_allow_html=True)
+                
+                braking_friction = 0.03 + (frame / total_frames) ** 3.5 * 0.55
+                time.sleep(braking_friction)
+            
+            st.session_state.r_result = landed_number
             st.session_state.r_status = "done"
             st.rerun()
             
@@ -196,10 +211,14 @@ elif chosen_game == "🎡 Roulette Wheel":
             color = "🟢 GREEN" if num == 0 else ("🔴 RED" if num in red_numbers else "⚫ BLACK")
             is_even = (num != 0) and (num % 2 == 0)
             
-            st.markdown(f"<h1 style='text-align: center; font-size: 80px;'>{num}</h1>", unsafe_allow_html=True)
-            st.markdown(f"<p style='text-align: center; font-size: 24px;'>The ball landed on: <b>{color}</b></p>", unsafe_allow_html=True)
+            final_hex = "#2e7d32" if num == 0 else ("#d32f2f" if num in red_numbers else "#212121")
+            st.markdown(f"""
+                <div style="background-color: {final_hex}; padding: 35px; border-radius: 20px; text-align: center; border: 5px solid #ffd700; margin: 10px auto; max-width: 280px;">
+                    <h1 style="color: white; font-size: 85px; margin: 0; font-family: 'Courier New', monospace; font-weight: bold;">{num}</h1>
+                    <p style="color: #ffd700; font-size: 18px; margin: 10px 0 0 0; font-weight: bold; letter-spacing: 3px;">RESULT</p>
+                </div>
+            """, unsafe_allow_html=True)
             
-            # Process bet win matrices
             won = False
             payout = 0
             
@@ -212,20 +231,146 @@ elif chosen_game == "🎡 Roulette Wheel":
             st.markdown("---")
             if won:
                 st.session_state.chips += payout
-                st.success(f"🎉 Winner! You won ${payout:,}!")
+                st.success(f"🎉 Winner! The ball settled on {color}. You won ${payout:,}!")
             else:
                 st.session_state.chips -= st.session_state.r_bet_amount
-                st.error(f"📉 House Wins! You lost your ${st.session_state.r_bet_amount} bet.")
+                st.error(f"📉 House Wins! The ball settled on {color}. You lost your ${st.session_state.r_bet_amount} bet.")
                 
             if st.button("Clear Table & Re-bet"):
                 st.session_state.r_status = "idle"
                 st.rerun()
         else:
-            st.info("Place a bet and spin to see results!")
+            st.info("Place a bet and spin to watch the roulette physics engine in action!")
 
 # =====================================================================
-# GAME 3: POKER MODULE RESERVATION SLOT
+# GAME 3: VIDEO POKER MODULE (JACKS OR BETTER)
 # =====================================================================
-elif chosen_game == "🃏 Poker Room (Coming Soon)":
-    st.header("The Casino Poker Room")
-    st.info("Development structural logic is reserved for this block. Next, we can build a traditional 5-Card Video Poker draw engine or a Casino Three-Card Hold'em framework here!")
+elif chosen_game == "🃏 Video Poker Room":
+    st.header("Jacks or Better - Video Poker")
+    st.write("Standard 5-Card Draw rules. Pair of Jacks or higher wins. Royal Flush pays 800x!")
+
+    if 'vp_stage' not in st.session_state: st.session_state.vp_stage = 'betting'
+    if 'vp_hand' not in st.session_state: st.session_state.vp_hand = []
+    if 'vp_deck' not in st.session_state: st.session_state.vp_deck = []
+    if 'vp_bet' not in st.session_state: st.session_state.vp_bet = 100
+    if 'vp_msg' not in st.session_state: st.session_state.vp_msg = ""
+    if 'vp_payout_name' not in st.session_state: st.session_state.vp_payout_name = ""
+
+    # Math Logic Engine: Evaluate 5-Card Poker Strengths
+    def evaluate_poker_hand(hand):
+        rank_order = ['2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K', 'A']
+        rank_map = {r: i for i, r in enumerate(rank_order)}
+        
+        values = sorted([rank_map[card[:-1]] for card in hand])
+        suits = [card[-1] for card in hand]
+        
+        is_flush = len(set(suits)) == 1
+        is_straight = False
+        
+        if len(set(values)) == 5 and (values[-1] - values[0] == 4):
+            is_straight = True
+        if values == [0, 1, 2, 3, 12]:  # Ace-low straight (A, 2, 3, 4, 5)
+            is_straight = True
+
+        counts = {}
+        for v in values: counts[v] = counts.get(v, 0) + 1
+        freqs = sorted(counts.values(), reverse=True)
+
+        if is_flush and is_straight and values[-1] == 12 and values[0] == 8:
+            return "Royal Flush 👑", 800
+        if is_flush and is_straight:
+            return "Straight Flush 🌈", 50
+        if freqs == [4, 1]:
+            return "Four of a Kind 🧊", 25
+        if freqs == [3, 2]:
+            return "Full House 🏠", 9
+        if is_flush:
+            return "Flush 🌊", 6
+        if is_straight:
+            return "Straight 📏", 4
+        if freqs == [3, 1, 1]:
+            return "Three of a Kind 💎", 3
+        if freqs == [2, 2, 1]:
+            return "Two Pair 👥", 2
+        if freqs == [2, 1, 1, 1]:
+            pair_value = [k for k, v in counts.items() if v == 2][0]
+            if pair_value >= 9:  # Index 9 corresponds to Jack
+                return "Jacks or Better 🃏", 1
+                
+        return "High Card (No Win) 💤", 0
+
+    def generate_poker_deck():
+        suits = ['♠', '♥', '♦', '♣']
+        ranks = ['2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K', 'A']
+        new_deck = [f"{rank}{suit}" for rank in ranks for suit in suits]
+        random.shuffle(new_deck)
+        return new_deck
+
+    # --- POKER MACHINE INTERFACES ---
+    if st.session_state.vp_stage == 'betting':
+        max_vp_bet = max(10, st.session_state.chips)
+        st.session_state.vp_bet = st.slider("Select Poker Bet ($)", 10, int(max_vp_bet), min(100, int(max_vp_bet)), 10)
+        
+        if st.button("Deal Cards", type="primary"):
+            if st.session_state.vp_bet > st.session_state.chips:
+                st.error("Insufficient chips!")
+            else:
+                st.session_state.vp_deck = generate_poker_deck()
+                st.session_state.vp_hand = [st.session_state.vp_deck.pop(0) for _ in range(5)]
+                st.session_state.vp_stage = 'playing'
+                # Clear past choices from holding session state memory
+                for i in range(5):
+                    if f"hold_{i}" in st.session_state:
+                        st.session_state[f"hold_{i}"] = False
+                st.rerun()
+
+    elif st.session_state.vp_stage == 'playing':
+        st.subheader("Your Dealt Hand - Select which cards to KEEP ('Hold')")
+        
+        # Display 5 dynamic columns side by side
+        cols = st.columns(5)
+        holds = [False] * 5
+        
+        for i in range(5):
+            with cols[i]:
+                st.markdown(f"<h1 style='text-align: center;'>{st.session_state.vp_hand[i]}</h1>", unsafe_allow_html=True)
+                holds[i] = st.checkbox("Hold Card", key=f"hold_{i}")
+
+        st.markdown("---")
+        if st.button("Draw Replacement Cards 🎰", type="primary"):
+            # Swap unheld cards out for new cards from the deck
+            for i in range(5):
+                if not holds[i]:
+                    st.session_state.vp_hand[i] = st.session_state.vp_deck.pop(0)
+            
+            # Run analytics logic engine on final array
+            name, multiplier = evaluate_poker_hand(st.session_state.vp_hand)
+            st.session_state.vp_payout_name = name
+            
+            if multiplier > 0:
+                winnings = st.session_state.vp_bet * multiplier
+                st.session_state.chips += winnings
+                st.session_state.vp_msg = f"Winner! Hand hit: **{name}**. You won **${winnings:,}**!"
+            else:
+                st.session_state.chips -= st.session_state.vp_bet
+                st.session_state.vp_msg = f"House wins. Hand ended with: **{name}**. Lost **${st.session_state.vp_bet}**."
+                
+            st.session_state.vp_stage = 'game_over'
+            st.rerun()
+
+    elif st.session_state.vp_stage == 'game_over':
+        st.subheader("Final Resolved Hand Output")
+        cols = st.columns(5)
+        for i in range(5):
+            with cols[i]:
+                st.markdown(f"<h1 style='text-align: center;'>{st.session_state.vp_hand[i]}</h1>", unsafe_allow_html=True)
+                
+        st.markdown("---")
+        if "Lost" in st.session_state.vp_msg:
+            st.error(st.session_state.vp_msg)
+        else:
+            st.success(st.session_state.vp_msg)
+            
+        if st.button("Play Next Poker Hand", type="primary"):
+            st.session_state.vp_stage = 'betting'
+            st.rerun()
